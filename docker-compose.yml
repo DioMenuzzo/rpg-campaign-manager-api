@@ -16,19 +16,36 @@ services:
       timeout: 3s
       retries: 10
 
+  mongo:
+    image: mongo:8.0
+    container_name: rpg-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   api:
     build: .
     container_name: rpg-api
     depends_on:
       postgres:
         condition: service_healthy
+      mongo:
+        condition: service_healthy
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/rpgmanager
       DB_USERNAME: rpg
       DB_PASSWORD: rpg
+      MONGO_URI: mongodb://mongo:27017/rpgmanager
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
     ports:
       - "8080:8080"
 
 volumes:
   pgdata:
+  mongodata:

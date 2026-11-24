@@ -2,9 +2,11 @@ package com.rpgmanager.character;
 
 import com.rpgmanager.campaign.Campaign;
 import com.rpgmanager.campaign.CampaignService;
+import com.rpgmanager.campaign.GameSystem;
 import com.rpgmanager.character.dto.CharacterRequest;
 import com.rpgmanager.character.dto.CharacterResponse;
 import com.rpgmanager.common.exception.ResourceNotFoundException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -16,10 +18,13 @@ public class CharacterService {
 
     private final PlayerCharacterRepository repository;
     private final CampaignService campaignService;
+    private final ApplicationEventPublisher events;
 
-    public CharacterService(PlayerCharacterRepository repository, CampaignService campaignService) {
+    public CharacterService(PlayerCharacterRepository repository, CampaignService campaignService,
+                            ApplicationEventPublisher events) {
         this.repository = repository;
         this.campaignService = campaignService;
+        this.events = events;
     }
 
     public Page<CharacterResponse> list(Long campaignId, Pageable pageable) {
@@ -50,6 +55,15 @@ public class CharacterService {
     @Transactional
     public void delete(Long campaignId, Long id) {
         repository.delete(findEntity(campaignId, id));
+        events.publishEvent(new CharacterDeletedEvent(campaignId, id));
+    }
+
+    /**
+     * Sistema de RPG da campanha do personagem (404 se o personagem não existir na campanha).
+     * Usado pelo módulo de fichas para validar o formato da ficha.
+     */
+    public GameSystem gameSystemOf(Long campaignId, Long id) {
+        return findEntity(campaignId, id).getCampaign().getGameSystem();
     }
 
     private PlayerCharacter findEntity(Long campaignId, Long id) {

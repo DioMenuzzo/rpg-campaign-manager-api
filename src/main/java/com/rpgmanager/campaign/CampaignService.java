@@ -3,6 +3,7 @@ package com.rpgmanager.campaign;
 import com.rpgmanager.campaign.dto.CampaignRequest;
 import com.rpgmanager.campaign.dto.CampaignResponse;
 import com.rpgmanager.common.exception.ResourceNotFoundException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -13,9 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class CampaignService {
 
     private final CampaignRepository repository;
+    private final ApplicationEventPublisher events;
 
-    public CampaignService(CampaignRepository repository) {
+    public CampaignService(CampaignRepository repository, ApplicationEventPublisher events) {
         this.repository = repository;
+        this.events = events;
     }
 
     public Page<CampaignResponse> list(GameSystem gameSystem, CampaignStatus status, Pageable pageable) {
@@ -42,10 +45,14 @@ public class CampaignService {
         return CampaignResponse.from(repository.saveAndFlush(campaign));
     }
 
-    /** Personagens, NPCs e sessões são removidos em cascata pelo banco (ON DELETE CASCADE). */
+    /**
+     * Personagens, NPCs e sessões são removidos em cascata pelo PostgreSQL (ON DELETE CASCADE).
+     * As fichas no MongoDB são removidas por um listener do evento, após o commit.
+     */
     @Transactional
     public void delete(Long id) {
         repository.delete(findEntity(id));
+        events.publishEvent(new CampaignDeletedEvent(id));
     }
 
     /** Usado pelos outros módulos para obter a campanha-pai (404 se não existir). */

@@ -13,7 +13,7 @@
 
     <groupId>com.rpgmanager</groupId>
     <artifactId>rpg-campaign-manager-api</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
     <name>RPG Campaign Manager API</name>
     <description>API para gerenciar campanhas de RPG de mesa (D&amp;D, Ordem Paranormal)</description>
 
@@ -52,6 +52,12 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
+        <!-- Fichas de personagem (documentos flexíveis por sistema de RPG) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+
         <!-- Observabilidade (health check para Docker/ECS; Prometheus na etapa 5) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -84,6 +90,11 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>mongodb</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

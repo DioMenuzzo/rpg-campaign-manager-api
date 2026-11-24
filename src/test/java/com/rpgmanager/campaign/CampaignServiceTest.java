@@ -8,12 +8,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -21,6 +23,9 @@ class CampaignServiceTest {
 
     @Mock
     private CampaignRepository repository;
+
+    @Mock
+    private ApplicationEventPublisher events;
 
     @InjectMocks
     private CampaignService service;
@@ -57,5 +62,16 @@ class CampaignServiceTest {
         assertThatThrownBy(() -> service.get(42L))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("42");
+    }
+
+    @Test
+    void deletePublishesEventForCleanup() {
+        Campaign existing = new Campaign("Fim", GameSystem.DND_5E, CampaignStatus.FINISHED, "Mestre", null);
+        when(repository.findById(7L)).thenReturn(Optional.of(existing));
+
+        service.delete(7L);
+
+        verify(repository).delete(existing);
+        verify(events).publishEvent(new CampaignDeletedEvent(7L));
     }
 }
