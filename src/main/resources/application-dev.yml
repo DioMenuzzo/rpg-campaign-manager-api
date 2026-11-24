@@ -1,0 +1,14 @@
+# Profile de desenvolvimento: carrega dados de exemplo e mostra o SQL gerado.
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    com.rpgmanager: DEBUG
+    org.hibernate.SQL: DEBUG
