@@ -3,6 +3,7 @@ package com.rpgmanager.sheet.model.ordem;
 import com.rpgmanager.campaign.GameSystem;
 import com.rpgmanager.sheet.model.CharacterSheetData;
 import com.rpgmanager.sheet.model.Item;
+import com.rpgmanager.sheet.model.ResourcePool;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

@@ -2,7 +2,7 @@
 
 🇧🇷 [Leia em português](README.pt-BR.md)
 
-Backend for managing tabletop RPG campaigns (D&D 5e, Ordem Paranormal and others): campaigns, player characters, NPCs and session scheduling/history.
+Backend for managing tabletop RPG campaigns (D&D 5e, Ordem Paranormal, 3D&T Alpha and others): campaigns, player characters, NPCs and session scheduling/history.
 
 A personal project with two goals: to be a real tool I use as a game master, and to serve as a portfolio piece covering the stack commonly required for backend/cloud developer roles.
 
@@ -100,9 +100,10 @@ Each campaign has a game system, and a character's sheet must match it. The `sys
 |---|---|
 | `DND_5E` | Species, classes (multiclass supported), ability scores, HP, AC, saving throws, skills (proficiency/expertise), spell slots, spells, inventory, features |
 | `ORDEM_PARANORMAL` | Class, origin, trail, NEX (0 allowed for civilians), attributes, PV/PE/Sanity, skills with training degree, rituals by element and circle, powers, inventory |
+| `TRES_D_T_ALPHA` | 3D&T Alpha: the five characteristics (F, H, R, A, PdF), PV/PM, advantages and disadvantages with point costs, skills, spells, kit, inventory |
 | `OTHER` | Free-form `fields` object, for systems without a dedicated model |
 
-Ordem Paranormal enum values keep the game's official Portuguese terms (`OCULTISTA`, `TREINADO`, `CONHECIMENTO`...).
+Ordem Paranormal enum values keep the game's official Portuguese terms (`OCULTISTA`, `TREINADO`, `CONHECIMENTO`...). For 3D&T Alpha, derived values include melee/ranged attack (FA) and defense (FD) before the 1d6 roll, base PV/PM (R×5) and points spent/remaining.
 
 ```bash
 curl -X PUT localhost:8080/api/campaigns/1/characters/1/sheet -H "Content-Type: application/json" -d '{
@@ -176,5 +177,5 @@ src/main/java/com/rpgmanager
 
 ### Hooks for upcoming stages
 
-- **New game systems (e.g. 3D&T):** a new record implementing `CharacterSheetData`, registered in `@JsonSubTypes`, plus a value in `GameSystem` (with a Flyway migration for the check constraint).
+- **New game systems (e.g. 3DeT Victory):** a new record implementing `CharacterSheetData`, registered in `@JsonSubTypes`, plus a value in `GameSystem` (with a Flyway migration for the check constraint).
 - **Stage 4 (queue):** `GameSessionService.create/update` publishes a `SessionScheduled` event when a session is `SCHEDULED`; a consumer sends the notification.

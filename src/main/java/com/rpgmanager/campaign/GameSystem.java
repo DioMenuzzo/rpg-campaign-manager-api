@@ -1,8 +1,9 @@
 package com.rpgmanager.campaign;
 
-/** Sistema de regras usado na campanha. Na etapa 2 define o formato da ficha no MongoDB. */
+/** Sistema de regras usado na campanha. Define o formato da ficha de personagem no MongoDB. */
 public enum GameSystem {
     DND_5E,
     ORDEM_PARANORMAL,
+    TRES_D_T_ALPHA,
     OTHER
 }

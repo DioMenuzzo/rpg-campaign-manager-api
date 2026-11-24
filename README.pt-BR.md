@@ -2,7 +2,7 @@
 
 🇺🇸 [Read in English](README.md)
 
-Backend para gerenciar campanhas de RPG de mesa (D&D 5e, Ordem Paranormal e outros): campanhas, personagens, NPCs e histórico/agenda de sessões.
+Backend para gerenciar campanhas de RPG de mesa (D&D 5e, Ordem Paranormal, 3D&T Alpha e outros): campanhas, personagens, NPCs e histórico/agenda de sessões.
 
 Projeto com dois objetivos: ser uma ferramenta real de apoio ao mestre e servir de portfólio cobrindo a stack de vagas backend/cloud.
 
@@ -100,6 +100,7 @@ Cada campanha tem um sistema de RPG, e a ficha do personagem precisa ser do mesm
 |---|---|
 | `DND_5E` | Espécie, classes (com multiclasse), atributos, PV, CA, salvaguardas, perícias (proficiência/especialização), espaços de magia, magias, inventário, características |
 | `ORDEM_PARANORMAL` | Classe, origem, trilha, NEX (aceita 0 para civis), atributos, PV/PE/Sanidade, perícias com grau de treinamento, rituais por elemento e círculo, poderes, inventário |
+| `TRES_D_T_ALPHA` | 3D&T Alpha: as cinco Características (F, H, R, A, PdF), PV/PM, vantagens e desvantagens com custo em pontos, perícias, magias, kit, inventário |
 | `OTHER` | Objeto `fields` livre, para sistemas sem modelo próprio |
 
 Exemplo:
@@ -118,7 +119,7 @@ curl -X PUT localhost:8080/api/campaigns/1/characters/1/sheet -H "Content-Type: 
 }'
 ```
 
-A resposta devolve a ficha e um bloco `derived` com valores calculados (modificadores, bônus de proficiência, bônus de perícias, percepção passiva, porcentagem de sanidade...), para que nenhum cliente precise reimplementar as regras.
+A resposta devolve a ficha e um bloco `derived` com valores calculados (modificadores, bônus de proficiência, bônus de perícias, percepção passiva, porcentagem de sanidade, FA/FD do 3D&T antes da rolagem de 1d, PV/PM base, pontos gastos e restantes...), para que nenhum cliente precise reimplementar as regras.
 
 ### Erros (RFC 9457 — Problem Details)
 
@@ -166,5 +167,5 @@ src/main/java/com/rpgmanager
 
 ### Ganchos para as próximas etapas
 
-- **Novos sistemas (ex.: 3D&T):** um novo record implementando `CharacterSheetData`, registrado em `@JsonSubTypes`, e um valor novo em `GameSystem` (com migration do Flyway para a constraint).
+- **Novos sistemas (ex.: 3DeT Victory):** um novo record implementando `CharacterSheetData`, registrado em `@JsonSubTypes`, e um valor novo em `GameSystem` (com migration do Flyway para a constraint).
 - **Etapa 4 (fila):** `GameSessionService.create/update` publica um evento `SessionScheduled` quando a sessão está `SCHEDULED`; um consumidor envia a notificação.

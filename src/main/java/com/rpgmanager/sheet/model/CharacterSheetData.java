@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.rpgmanager.campaign.GameSystem;
 import com.rpgmanager.sheet.model.dnd.Dnd5eSheet;
 import com.rpgmanager.sheet.model.ordem.OrdemParanormalSheet;
+import com.rpgmanager.sheet.model.tresdt.TresDTAlphaSheet;
 
 import java.util.Map;
 
@@ -19,6 +20,7 @@ import java.util.Map;
 @JsonSubTypes({
         @JsonSubTypes.Type(value = Dnd5eSheet.class, name = "DND_5E"),
         @JsonSubTypes.Type(value = OrdemParanormalSheet.class, name = "ORDEM_PARANORMAL"),
+        @JsonSubTypes.Type(value = TresDTAlphaSheet.class, name = "TRES_D_T_ALPHA"),
         @JsonSubTypes.Type(value = FreeformSheet.class, name = "OTHER")
 })
 public interface CharacterSheetData {

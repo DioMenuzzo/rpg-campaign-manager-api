@@ -93,6 +93,35 @@ class CharacterSheetApiIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    void saves3DTAlphaSheet() throws Exception {
+        long campaignId = createCampaign("TRES_D_T_ALPHA");
+        long characterId = createCharacter(campaignId);
+
+        mockMvc.perform(put(sheetUrl(campaignId, characterId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "system": "TRES_D_T_ALPHA",
+                                  "totalPoints": 10,
+                                  "characteristics": {"strength": 0, "skill": 3, "resistance": 2,
+                                                      "armor": 1, "firepower": 1},
+                                  "hitPoints": {"max": 10, "current": 7},
+                                  "magicPoints": {"max": 10, "current": 10},
+                                  "advantages": [{"name": "Aceleração", "points": 1}],
+                                  "disadvantages": [{"name": "Código de Honra", "points": 1}]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sheet.system").value("TRES_D_T_ALPHA"))
+                .andExpect(jsonPath("$.derived.meleeAttack").value(3))
+                .andExpect(jsonPath("$.derived.rangedAttack").value(4))
+                .andExpect(jsonPath("$.derived.defense").value(4))
+                .andExpect(jsonPath("$.derived.baseHitPoints").value(10))
+                .andExpect(jsonPath("$.derived.pointsSpent").value(7))
+                .andExpect(jsonPath("$.derived.pointsRemaining").value(3));
+    }
+
+    @Test
     void rejectsSheetFromAnotherSystem() throws Exception {
         long campaignId = createCampaign("DND_5E");
         long characterId = createCharacter(campaignId);
