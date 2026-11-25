@@ -156,7 +156,7 @@ src/main/java/com/rpgmanager
 - **Flyway como dono do schema** (`ddl-auto: validate`): mudanças no banco são versionadas e revisáveis. Dados de exemplo ficam numa migration repetível carregada só no profile `dev`.
 - **Cascata no banco** (`ON DELETE CASCADE`) em vez de coleções JPA na campanha: evita carregar listas inteiras na memória para remover uma campanha.
 - **`PlayerCharacter`** em vez de `Character`, para não colidir com `java.lang.Character`.
-- **Configuração por variáveis de ambiente** (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `PORT`), já pensando no deploy da etapa 3 (RDS + ECS).
+- **Configuração por variáveis de ambiente** (`RPG_DB_URL`, `RPG_DB_USERNAME`, `RPG_DB_PASSWORD`, `RPG_MONGO_URI`, `RPG_PORT`), com prefixo `RPG_` para nunca colidir com variáveis que já existam na máquina, já pensando no deploy da etapa 3 (RDS + ECS).
 - **Health probes do Actuator** (`/actuator/health/liveness` e `/readiness`) usados pelo `HEALTHCHECK` do Docker e, depois, pelo ECS/Kubernetes.
 - **Persistência poliglota:** dados relacionais e fortemente ligados (campanhas, personagens, NPCs, sessões) ficam no PostgreSQL; fichas, cujo formato muda por sistema, ficam no MongoDB. Cada banco é usado onde seu modelo faz sentido.
 - **Um único contrato para API e armazenamento:** as fichas são records Java com Bean Validation, desserializados de forma polimórfica pelo Jackson a partir do campo `system`. O mesmo mapeamento converte para o documento do Mongo, então o banco não guarda nomes de classes Java e adicionar um campo à ficha não exige migration.

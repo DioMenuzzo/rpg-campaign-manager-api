@@ -166,7 +166,7 @@ src/main/java/com/rpgmanager
 - **Flyway owns the schema** (`ddl-auto: validate`): database changes are versioned and reviewable. Sample data lives in a repeatable migration loaded only by the `dev` profile.
 - **Cascading deletes in the database** (`ON DELETE CASCADE`) instead of JPA collections on the campaign, so deleting a campaign doesn't load entire child lists into memory.
 - **`PlayerCharacter`** instead of `Character`, to avoid clashing with `java.lang.Character`.
-- **Configuration via environment variables** (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `PORT`), ready for the stage 3 deployment (RDS + ECS).
+- **Configuration via environment variables** (`RPG_DB_URL`, `RPG_DB_USERNAME`, `RPG_DB_PASSWORD`, `RPG_MONGO_URI`, `RPG_PORT`), prefixed with `RPG_` so they never collide with variables already set on the host, ready for the stage 3 deployment (RDS + ECS).
 - **Actuator health probes** (`/actuator/health/liveness` and `/readiness`), used by the Docker `HEALTHCHECK` and later by ECS/Kubernetes.
 - **Polyglot persistence:** relational, strongly linked data (campaigns, characters, NPCs, sessions) lives in PostgreSQL; character sheets, whose shape changes per game system, live in MongoDB. Each store is used where its model fits.
 - **One contract for API and storage:** sheets are typed Java records with Bean Validation, deserialized polymorphically by Jackson from the `system` field. The same mapping converts them to and from the Mongo document, so the database never stores Java class names and adding a sheet field needs no migration.

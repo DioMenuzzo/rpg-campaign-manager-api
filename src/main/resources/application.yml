@@ -3,11 +3,11 @@ spring:
     name: rpg-campaign-manager-api
 
   # Variáveis de ambiente com valores padrão para rodar local.
-  # Em produção (etapa 3, AWS RDS) basta sobrescrever DB_URL / DB_USERNAME / DB_PASSWORD.
+  # Em produção (etapa 3, AWS RDS) basta sobrescrever RPG_DB_URL / RPG_DB_USERNAME / RPG_DB_PASSWORD.
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/rpgmanager}
-    username: ${DB_USERNAME:rpg}
-    password: ${DB_PASSWORD:rpg}
+    url: ${RPG_DB_URL:jdbc:postgresql://localhost:5433/rpgmanager}
+    username: ${RPG_DB_USERNAME:rpg}
+    password: ${RPG_DB_PASSWORD:rpg}
 
   jpa:
     open-in-view: false
@@ -22,17 +22,17 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
-  # Fichas de personagem. Em produção: MONGO_URI apontando para o cluster (etapa 3).
+  # Fichas de personagem. Em produção: RPG_MONGO_URI apontando para o cluster (etapa 3).
   data:
     mongodb:
-      uri: ${MONGO_URI:mongodb://localhost:27017/rpgmanager}
+      uri: ${RPG_MONGO_URI:mongodb://localhost:27017/rpgmanager}
       auto-index-creation: true   # cria o índice único de characterId
 
   jackson:
     default-property-inclusion: non_null
 
 server:
-  port: ${PORT:8080}
+  port: ${RPG_PORT:8080}
   shutdown: graceful
 
 management:

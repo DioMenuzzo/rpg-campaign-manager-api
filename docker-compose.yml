@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: rpg
       POSTGRES_PASSWORD: rpg
     ports:
-      - "5432:5432"
+      - "5433:5432"   # 5433 no host: evita conflito com um PostgreSQL já instalado na máquina
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -38,10 +38,10 @@ services:
       mongo:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/rpgmanager
-      DB_USERNAME: rpg
-      DB_PASSWORD: rpg
-      MONGO_URI: mongodb://mongo:27017/rpgmanager
+      RPG_DB_URL: jdbc:postgresql://postgres:5432/rpgmanager
+      RPG_DB_USERNAME: rpg
+      RPG_DB_PASSWORD: rpg
+      RPG_MONGO_URI: mongodb://mongo:27017/rpgmanager
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
     ports:
       - "8080:8080"
