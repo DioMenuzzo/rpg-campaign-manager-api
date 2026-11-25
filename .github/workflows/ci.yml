@@ -1,12 +1,19 @@
-name: CI
+name: CI/CD
 
+# Pull requests: só build e testes.
+# Push no main: build e testes -> imagem no GHCR -> deploy no EC2 via AWS Systems Manager.
 on:
   push:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build:
+  test:
+    name: Build e testes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,8 +25,104 @@ jobs:
           cache: maven
 
       # Testcontainers usa o Docker já disponível no runner do GitHub
-      - name: Build e testes
+      - name: mvn verify
         run: mvn -B verify
 
-      - name: Build da imagem Docker
-        run: docker build -t rpg-campaign-manager-api:ci .
+  image:
+    name: Publica imagem no GHCR
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write          # para publicar no GitHub Container Registry
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # O GHCR exige nome em minúsculas (DioMenuzzo -> diomenuzzo)
+      - id: name
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.name.outputs.image }}:latest
+            ${{ steps.name.outputs.image }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy no EC2
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write          # OIDC: credenciais temporárias da AWS, sem chave guardada no GitHub
+      contents: read
+    env:
+      IMAGE: ${{ needs.image.outputs.image }}:${{ github.sha }}
+      INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # O comando roda no servidor pelo SSM Agent: nenhuma porta de entrada precisa ficar aberta.
+      # Os segredos (senhas do RDS e do Atlas) ficam só no servidor, em /home/ec2-user/rpg.env.
+      - name: Atualiza o container no servidor
+        run: |
+          PARAMS=$(jq -n --arg img "$IMAGE" '{commands: [
+            "set -e",
+            "docker pull \($img)",
+            "docker rm -f rpg-api || true",
+            "docker run -d --name rpg-api --restart unless-stopped --env-file /home/ec2-user/rpg.env -p 80:8080 \($img)",
+            "docker image prune -af"
+          ]}')
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy ${GITHUB_SHA::7}" \
+            --parameters "$PARAMS" \
+            --query "Command.CommandId" --output text)
+          echo "Comando SSM: $COMMAND_ID"
+
+          # Espera até 5 minutos pelo fim do comando (o primeiro pull da imagem pode demorar)
+          for i in $(seq 1 60); do
+            STATUS=$(aws ssm get-command-invocation --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" --query "Status" --output text 2>/dev/null || echo "Pending")
+            case "$STATUS" in
+              Pending|InProgress|Delayed) sleep 5 ;;
+              *) break ;;
+            esac
+          done
+
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query "{status: Status, stdout: StandardOutputContent, stderr: StandardErrorContent}" --output json
+
+          echo "Status final: $STATUS"
+          [ "$STATUS" = "Success" ]
+
+      - name: Verifica se a API subiu
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "${{ vars.API_BASE_URL }}/actuator/health/readiness"; then
+              echo; echo "API no ar."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "A API não respondeu em 150 segundos."
+          exit 1
