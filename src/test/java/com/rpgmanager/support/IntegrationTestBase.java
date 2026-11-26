@@ -7,25 +7,32 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.lifecycle.Startables;
 
 /**
- * Base dos testes de integração: sobe PostgreSQL e MongoDB reais em containers (mesmas versões do
- * docker-compose) e o Spring aponta para eles via {@code @ServiceConnection}.
+ * Base dos testes de integração: PostgreSQL e MongoDB reais em containers (mesmas versões do
+ * docker-compose), ligados ao Spring via {@code @ServiceConnection}.
+ *
+ * <p>Padrão "singleton container": os containers sobem uma única vez, no carregamento da classe, e ficam
+ * ativos até o fim da JVM de testes (o Ryuk, do Testcontainers, remove tudo ao final). Isso é necessário
+ * porque o Spring reaproveita o mesmo contexto entre classes de teste; se cada classe subisse containers
+ * próprios ({@code @Testcontainers} + {@code @Container}), o contexto em cache continuaria apontando para
+ * as portas dos containers já desligados.</p>
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@Testcontainers
 public abstract class IntegrationTestBase {
 
-    @Container
     @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17-alpine");
+    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17-alpine");
 
-    @Container
     @ServiceConnection
-    static MongoDBContainer mongo = new MongoDBContainer("mongo:8.0");
+    static final MongoDBContainer mongo = new MongoDBContainer("mongo:8.0");
+
+    static {
+        // Sobe os dois em paralelo
+        Startables.deepStart(postgres, mongo).join();
+    }
 
     @Autowired
     protected MockMvc mockMvc;
