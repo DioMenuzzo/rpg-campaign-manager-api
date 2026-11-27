@@ -2,11 +2,13 @@
 
 🇧🇷 [Leia em português](README.pt-BR.md)
 
+[![CI/CD](https://github.com/DioMenuzzo/rpg-campaign-manager-api/actions/workflows/ci.yml/badge.svg)](https://github.com/DioMenuzzo/rpg-campaign-manager-api/actions/workflows/ci.yml)
+
 Backend for managing tabletop RPG campaigns (D&D 5e, Ordem Paranormal, 3D&T Alpha and others): campaigns, player characters, NPCs and session scheduling/history.
 
 A personal project with two goals: to be a real tool I use as a game master, and to serve as a portfolio piece covering the stack commonly required for backend/cloud developer roles.
 
-**Stack:** Java 21 · Spring Boot 3.5 · Spring Data JPA · PostgreSQL 17 · Flyway · Spring Data MongoDB · MongoDB 8 · Bean Validation · springdoc-openapi · JUnit 5 + Mockito + Testcontainers · Docker · GitHub Actions
+**Stack:** Java 21 · Spring Boot 3.5 · Spring Data JPA · PostgreSQL 17 · Flyway · Spring Data MongoDB · MongoDB 8 · Bean Validation · springdoc-openapi · JUnit 5 + Mockito + Testcontainers · Docker · GitHub Actions · AWS (EC2, RDS, Systems Manager, IAM OIDC) · MongoDB Atlas · GHCR
 
 ---
 
@@ -16,9 +18,54 @@ A personal project with two goals: to be a real tool I use as a game master, and
 |---|---|---|
 | 1 | REST API (CRUD for Campaign, Character, NPC and Session) with Spring Boot + PostgreSQL on Docker | ✅ |
 | 2 | Flexible character sheets in **MongoDB** (each RPG system has a different structure) | ✅ |
-| 3 | **AWS** deployment (free tier): Docker + EC2/ECS + RDS | ⏳ |
+| 3 | **AWS** deployment: Docker on EC2 + RDS PostgreSQL + MongoDB Atlas, with automated CI/CD (GitHub Actions → GHCR → SSM) | ✅ |
 | 4 | Asynchronous notifications for scheduled sessions via a message queue (**RabbitMQ** or **SQS**) | ⏳ |
 | 5 | Extras: Prometheus + Grafana, Nginx load balancer, ELK, local Kubernetes (minikube) | ⏳ |
+
+---
+
+## Deployment (AWS) and CI/CD
+
+The API runs on AWS and is redeployed automatically on every push to `main`.
+
+```mermaid
+flowchart LR
+    dev([git push main]) --> gh
+
+    subgraph gh [GitHub Actions]
+        direction TB
+        t[Build + tests<br/>Testcontainers] --> img[Build image<br/>push to GHCR] --> dep[Deploy job]
+    end
+
+    dep -- "OIDC: short-lived credentials<br/>(no stored AWS keys)" --> sts[AWS STS]
+    dep -- "ssm:SendCommand" --> ssm[AWS Systems Manager]
+
+    subgraph aws [AWS us-east-1]
+        direction TB
+        ec2[EC2 t3.micro<br/>Docker container<br/>Elastic IP, port 80]
+        rds[(RDS PostgreSQL 17<br/>private, no public access)]
+        ec2 --> rds
+    end
+
+    ssm -- "docker pull + restart" --> ec2
+    ghcr[(GHCR image)] -.-> ec2
+    ec2 --> atlas[(MongoDB Atlas<br/>IP allowlist)]
+    users([Clients]) -- HTTP --> ec2
+```
+
+**Pipeline** (`.github/workflows/ci.yml`):
+
+1. **Build and tests:** `mvn verify` with real PostgreSQL and MongoDB containers (Testcontainers). Pull requests stop here.
+2. **Image:** builds the Docker image and publishes it to the GitHub Container Registry, tagged `latest` and with the commit SHA.
+3. **Deploy:** assumes an IAM role through **GitHub OIDC** (no long-lived AWS keys in the repository), sends a command to the instance through **AWS Systems Manager** (`docker pull` + recreate the container, no inbound SSH needed), then polls `/actuator/health/readiness` until the new version answers.
+
+**Infrastructure and security decisions:**
+
+- **Least privilege for CI:** the deploy role trusts only this repository's `main` branch (matched by the immutable owner/repository IDs in the OIDC `sub` claim) and may only run `AWS-RunShellScript` on this one instance.
+- **No secrets in the image or repository:** database credentials live only on the server (`/home/ec2-user/rpg.env`, mode 600) and reach the container as environment variables.
+- **Network isolation:** RDS has no public access; only the instance's security group can reach it. MongoDB Atlas accepts connections only from the instance's Elastic IP. SSH is open only to the maintainer's IP.
+- **Zero-cost setup:** AWS free plan (t3.micro + db.t4g.micro + gp3 storage, covered by free-tier credits) and the MongoDB Atlas free cluster, with a zero-spend budget alert. ECS + load balancer was deliberately left for a later stage, since an ALB alone would consume most of the credits.
+- **Same container everywhere:** the image that passed the tests is the one deployed; local, CI and production all run PostgreSQL 17 and the same Spring profiles, differing only by environment variables.
 
 ---
 
@@ -166,8 +213,8 @@ src/main/java/com/rpgmanager
 - **Flyway owns the schema** (`ddl-auto: validate`): database changes are versioned and reviewable. Sample data lives in a repeatable migration loaded only by the `dev` profile.
 - **Cascading deletes in the database** (`ON DELETE CASCADE`) instead of JPA collections on the campaign, so deleting a campaign doesn't load entire child lists into memory.
 - **`PlayerCharacter`** instead of `Character`, to avoid clashing with `java.lang.Character`.
-- **Configuration via environment variables** (`RPG_DB_URL`, `RPG_DB_USERNAME`, `RPG_DB_PASSWORD`, `RPG_MONGO_URI`, `RPG_PORT`), prefixed with `RPG_` so they never collide with variables already set on the host, ready for the stage 3 deployment (RDS + ECS).
-- **Actuator health probes** (`/actuator/health/liveness` and `/readiness`), used by the Docker `HEALTHCHECK` and later by ECS/Kubernetes.
+- **Configuration via environment variables** (`RPG_DB_URL`, `RPG_DB_USERNAME`, `RPG_DB_PASSWORD`, `RPG_MONGO_URI`, `RPG_PORT`), prefixed with `RPG_` so they never collide with variables already set on the host, used unchanged in production (RDS + Atlas).
+- **Actuator health probes** (`/actuator/health/liveness` and `/readiness`), used by the Docker `HEALTHCHECK` and by the deploy job to confirm a new version is up.
 - **Polyglot persistence:** relational, strongly linked data (campaigns, characters, NPCs, sessions) lives in PostgreSQL; character sheets, whose shape changes per game system, live in MongoDB. Each store is used where its model fits.
 - **One contract for API and storage:** sheets are typed Java records with Bean Validation, deserialized polymorphically by Jackson from the `system` field. The same mapping converts them to and from the Mongo document, so the database never stores Java class names and adding a sheet field needs no migration.
 - **Cross-store consistency without distributed transactions:** deleting a character or campaign publishes a domain event; a `@TransactionalEventListener(AFTER_COMMIT)` removes the matching sheets from MongoDB only after PostgreSQL commits. A failed cleanup leaves a harmless orphan (sheets are always accessed through an existing character), an explicit eventual-consistency trade-off.
@@ -178,4 +225,5 @@ src/main/java/com/rpgmanager
 ### Hooks for upcoming stages
 
 - **New game systems (e.g. 3DeT Victory):** a new record implementing `CharacterSheetData`, registered in `@JsonSubTypes`, plus a value in `GameSystem` (with a Flyway migration for the check constraint).
+- **Authentication:** Spring Security with JWT before exposing the public URL more widely.
 - **Stage 4 (queue):** `GameSessionService.create/update` publishes a `SessionScheduled` event when a session is `SCHEDULED`; a consumer sends the notification.
